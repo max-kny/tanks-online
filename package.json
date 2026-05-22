@@ -1,0 +1,24 @@
+{
+  "name": "tanks-online",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Retro 90s-style tank multiplayer game (React 19 + NestJS 11 + Socket.io)",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm --workspace tanks-server run start:dev",
+    "dev:client": "npm --workspace tanks-client run dev",
+    "build": "npm --workspace tanks-server run build && npm --workspace tanks-client run build",
+    "lint": "npm --workspace tanks-server run lint && npm --workspace tanks-client run lint",
+    "typecheck": "npm --workspace tanks-server run typecheck && npm --workspace tanks-client run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

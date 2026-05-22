@@ -79,9 +79,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { ok: false, error: 'Already in a room' };
     }
     const room = this.createRoom();
+    // Join the Socket.io room BEFORE addPlayer, so the lobby:state event
+    // it broadcasts via `server.to(code)` reaches this client.
+    void client.join(room.code);
     const res = room.addPlayer(client.id, payload?.name ?? 'Player');
-    if (!res.ok) return res;
-    client.join(room.code);
+    if (!res.ok) {
+      void client.leave(room.code);
+      room.dispose();
+      this.rooms.delete(room.code);
+      return res;
+    }
     this.socketRoom.set(client.id, room.code);
     return { ok: true, data: { code: room.code } };
   }
@@ -97,9 +104,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const code = (payload?.code ?? '').toUpperCase();
     const room = this.rooms.get(code);
     if (!room) return { ok: false, error: 'Room not found' };
+    // Join the Socket.io room BEFORE addPlayer, so the lobby:state event
+    // it broadcasts via `server.to(code)` reaches this client.
+    void client.join(room.code);
     const res = room.addPlayer(client.id, payload?.name ?? 'Player');
-    if (!res.ok) return res;
-    client.join(room.code);
+    if (!res.ok) {
+      void client.leave(room.code);
+      return res;
+    }
     this.socketRoom.set(client.id, room.code);
     return { ok: true, data: { code: room.code } };
   }

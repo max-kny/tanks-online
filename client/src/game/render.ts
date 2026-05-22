@@ -23,11 +23,16 @@ interface RenderArgs {
   alpha: number; // 0..1 between prev and current snapshot
   youId: string;
   plane: PlaneState | null;
+  /** `performance.now()` — used for purely visual animation/oscillation. */
   now: number;
+  /** `Date.now()` — used to compare against server-provided epoch timestamps
+   * (e.g. `tank.shieldUntil`). Keep separate from `now` because
+   * `performance.now()` is a page-load monotonic clock, not an epoch time. */
+  epochNow: number;
 }
 
 export function renderFrame(args: RenderArgs): void {
-  const { ctx, map, snapshot, prevSnapshot, alpha, youId, plane, now } = args;
+  const { ctx, map, snapshot, prevSnapshot, alpha, youId, plane, now, epochNow } = args;
 
   ctx.fillStyle = PALETTE.bg;
   ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -36,7 +41,7 @@ export function renderFrame(args: RenderArgs): void {
   // Bullets are drawn before tanks so tank chassis can occlude their tail.
   drawBullets(ctx, snapshot.bullets, prevSnapshot?.bullets ?? null, alpha);
   drawAirdrops(ctx, snapshot.airdrops, now);
-  drawTanks(ctx, snapshot.tanks, prevSnapshot?.tanks ?? null, alpha, youId, now);
+  drawTanks(ctx, snapshot.tanks, prevSnapshot?.tanks ?? null, alpha, youId, now, epochNow);
   // Bushes are drawn last so tanks under them appear semi-hidden.
   drawMapTiles(ctx, map, true);
   if (plane) drawPlane(ctx, plane);
@@ -111,6 +116,7 @@ function drawTanks(
   alpha: number,
   youId: string,
   now: number,
+  epochNow: number,
 ): void {
   const prevById = new Map(prev?.map((t) => [t.id, t]) ?? []);
   for (const tank of tanks) {
@@ -118,12 +124,19 @@ function drawTanks(
     const prevTank = prevById.get(tank.id);
     const x = prevTank ? lerp(prevTank.x, tank.x, alpha) : tank.x;
     const y = prevTank ? lerp(prevTank.y, tank.y, alpha) : tank.y;
-    drawTank(ctx, tank, x, y, now);
+    drawTank(ctx, tank, x, y, now, epochNow);
     if (tank.id === youId) drawYouMarker(ctx, x, y);
   }
 }
 
-function drawTank(ctx: CanvasRenderingContext2D, tank: TankState, x: number, y: number, now: number): void {
+function drawTank(
+  ctx: CanvasRenderingContext2D,
+  tank: TankState,
+  x: number,
+  y: number,
+  now: number,
+  epochNow: number,
+): void {
   const palette = PALETTE.tanks[tank.color % PALETTE.tanks.length];
   // Tread strips
   ctx.fillStyle = palette.tread;
@@ -159,8 +172,9 @@ function drawTank(ctx: CanvasRenderingContext2D, tank: TankState, x: number, y: 
       ctx.fillRect(cx, cy - barrelHalf, barrelLen, barrelHalf * 2);
       break;
   }
-  // Shield aura
-  if (tank.shieldUntil > now) {
+  // Shield aura — `shieldUntil` is a server-side `Date.now()` epoch timestamp,
+  // so compare against epochNow (NOT the page-load-relative `now`).
+  if (tank.shieldUntil > epochNow) {
     const phase = Math.floor(now / 80) % 2;
     ctx.strokeStyle = phase === 0 ? PALETTE.shield : '#a0f0ff';
     ctx.lineWidth = 1;

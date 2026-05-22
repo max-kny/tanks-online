@@ -106,6 +106,7 @@ export function GameScreen({ map: initialMap, youId, initialSnapshot, lobby }: P
         youId,
         plane: planeRef.current,
         now,
+        epochNow: Date.now(),
       });
       raf = requestAnimationFrame(draw);
     };
